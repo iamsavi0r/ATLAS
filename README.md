@@ -53,5 +53,3 @@ The project is currently in active development (MVP phase). The main focus is li
 * **Dev Blog (Backstage & Progress):** [https://www.instagram.com/atlas.project.w/ / https://medium.com/@savi0r]
 
 *If you believe cybersecurity education should be accessible to everyone, regardless of their hardware—please drop a ⭐ to support the project!*
-
-вот поэтому мы создали атлас
