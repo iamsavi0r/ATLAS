@@ -1,8 +1,7 @@
 # ATLAS
-🌍 ATLAS (Accessible Training Labs for Active-directory Security)
 
 
-# 🌍 ATLAS (Accessible Training Labs for Active-directory Security)
+## 🌍 ATLAS (Accessible Training Labs for Active-directory Security)
 
 > **Forget about 24GB RAM requirements and expensive SSDs. ATLAS is a lightweight infrastructure-as-code automation tool designed to spin up vulnerable Active Directory environments for Red Teamers and students on low-spec hardware or within cloud Free Tiers in just a few minutes.**
 
