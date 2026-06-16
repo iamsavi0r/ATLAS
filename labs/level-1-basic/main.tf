@@ -44,16 +44,17 @@ resource "azurerm_public_ip" "atlas_ip" {
   name                = "ATLAS-DC01-ip"
   location            = azurerm_resource_group.atlas_rg.location
   resource_group_name = azurerm_resource_group.atlas_rg.name
-  allocation_method   = "Dynamic"
+  sku                 = "Standard"  # Решает проблему с лимитами Azure
+  allocation_method   = "Static"    # Обязательно для Standard SKU
 }
 
-# 6. Настраиваем Файрвол (Группу безопасности) — открываем порты для управления и атак
+# 6. Настраиваем Файрвол (Группу безопасности)
 resource "azurerm_network_security_group" "atlas_nsg" {
   name                = "ATLAS-DC01-nsg"
   location            = azurerm_resource_group.atlas_rg.location
   resource_group_name = azurerm_resource_group.atlas_rg.name
 
-  # Правило 1: Доступ по RDP, чтобы админить или смотреть логи изнутри
+  # Правило 1: Доступ по RDP
   security_rule {
     name                       = "Allow-RDP-All"
     priority                   = 1001
@@ -66,15 +67,41 @@ resource "azurerm_network_security_group" "atlas_nsg" {
     destination_address_prefix = "*"
   }
 
-  # Правило 2: Открываем порты для Impacket (88=Kerberos, 389=LDAP, 445=SMB, 3268=Global Catalog)
+  # Правило 2: Kerberos (Порт 88)
   security_rule {
-    name                       = "Allow-AD-Pentest-Ports"
+    name                       = "Allow-Kerberos"
     priority                   = 1002
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "88,389,445,3268"
+    destination_port_range     = "88"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  # Правило 3: LDAP (Порт 389)
+  security_rule {
+    name                       = "Allow-LDAP"
+    priority                   = 1003
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "389"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  # Правило 4: SMB (Порт 445)
+  security_rule {
+    name                       = "Allow-SMB"
+    priority                   = 1004
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "445"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
