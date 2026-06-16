@@ -19,7 +19,7 @@ provider "azurerm" {
 
 # 2. Создаем Группу Ресурсов (rg-atlas-prod)
 resource "azurerm_resource_group" "atlas_rg" {
-  name     = "rg-atlas-prod"
+  name     = "rg-atlas-prod-lab1"
   location = "South Africa North" # Твой регион из конфига
 }
 
