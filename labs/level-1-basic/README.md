@@ -1,21 +1,21 @@
 # ATLAS Project: Olympus Lab
 
-This lab environment provides a domain controller for Active Directory security testing (AS-REP Roasting, Kerberoasting).
+This lab provides a domain controller for Active Directory security testing.
 
 ## Status
-The infrastructure is 90% automated using Terraform. However, due to occasional cloud provider latency during Active Directory role installation, some final configuration steps may require manual intervention via RDP/PSSession.
+The infrastructure is 90% automated with Terraform. To be honest, I hit a wall with cloud automation—sometimes the AD role installation hangs or acts up due to latency. I’m still working on a "perfect" fix, but for now, you might need to finish the last 10% of the setup manually. 
+
+Don't worry, it's actually good practice: you'll see exactly how the DC is built from the inside.
 
 ## Deployment
 1. Initialize and apply Terraform:
    terraform init
    terraform apply -auto-approve
 
-2. If the domain is not reachable, connect to the DC and finalize AD configuration manually:
-   - Connect via RDP or Enter-PSSession using the admin credentials defined in main.tf.
-   - Run the manual configuration commands listed in the "Manual Setup" section below.
+2. If the domain isn't fully ready (like if the ports aren't open), just hop into the server and run the manual setup below. It’s a quick fix.
 
 ## Manual Setup
-If AD services are not active, run these commands inside the DC:
+If you need to finish the config, connect to the DC via RDP or Enter-PSSession using your admin credentials and run these:
 
 # 1. Install AD Domain Services
 ```
