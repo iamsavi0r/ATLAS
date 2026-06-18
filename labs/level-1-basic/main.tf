@@ -3,7 +3,6 @@
 # Domain: olympus.local | Author: savi0r
 # ==============================================================================
 
-# 1. Настройки провайдера Azure
 terraform {
   required_providers {
     azurerm = {
@@ -17,13 +16,13 @@ provider "azurerm" {
   features {}
 }
 
-# 2. Создаем Группу Ресурсов (rg-atlas-prod)
+# 1. Группа ресурсов
 resource "azurerm_resource_group" "atlas_rg" {
   name     = "rg-atlas-prod-lab1"
-  location = "South Africa North" # Твой регион из конфига
+  location = "South Africa North"
 }
 
-# 3. Создаем Виртуальную Сеть (ATLAS-DC01-vnet)
+# 2. Сетевая инфраструктура
 resource "azurerm_virtual_network" "atlas_vnet" {
   name                = "ATLAS-DC01-vnet"
   address_space       = ["10.0.0.0/16"]
@@ -31,7 +30,6 @@ resource "azurerm_virtual_network" "atlas_vnet" {
   resource_group_name = azurerm_resource_group.atlas_rg.name
 }
 
-# 4. Создаем Подсеть (default: 10.0.0.0/24)
 resource "azurerm_subnet" "atlas_subnet" {
   name                 = "default"
   resource_group_name  = azurerm_resource_group.atlas_rg.name
@@ -39,22 +37,21 @@ resource "azurerm_subnet" "atlas_subnet" {
   address_prefixes     = ["10.0.0.0/24"]
 }
 
-# 5. Выделяем Общедоступный IP-адрес (ATLAS-DC01-ip)
+# 3. Публичный IP-адрес
 resource "azurerm_public_ip" "atlas_ip" {
   name                = "ATLAS-DC01-ip"
   location            = azurerm_resource_group.atlas_rg.location
   resource_group_name = azurerm_resource_group.atlas_rg.name
-  sku                 = "Standard"  # Решает проблему с лимитами Azure
-  allocation_method   = "Static"    # Обязательно для Standard SKU
+  sku                 = "Standard"
+  allocation_method   = "Static"
 }
 
-# 6. Настраиваем Файрвол (Группу безопасности)
+# 4. Группа безопасности (Открываем порты для векторов атак)
 resource "azurerm_network_security_group" "atlas_nsg" {
   name                = "ATLAS-DC01-nsg"
   location            = azurerm_resource_group.atlas_rg.location
   resource_group_name = azurerm_resource_group.atlas_rg.name
 
-  # Правило 1: Доступ по RDP
   security_rule {
     name                       = "Allow-RDP-All"
     priority                   = 1001
@@ -67,7 +64,6 @@ resource "azurerm_network_security_group" "atlas_nsg" {
     destination_address_prefix = "*"
   }
 
-  # Правило 2: Kerberos (Порт 88)
   security_rule {
     name                       = "Allow-Kerberos"
     priority                   = 1002
@@ -80,7 +76,6 @@ resource "azurerm_network_security_group" "atlas_nsg" {
     destination_address_prefix = "*"
   }
 
-  # Правило 3: LDAP (Порт 389)
   security_rule {
     name                       = "Allow-LDAP"
     priority                   = 1003
@@ -93,7 +88,6 @@ resource "azurerm_network_security_group" "atlas_nsg" {
     destination_address_prefix = "*"
   }
 
-  # Правило 4: SMB (Порт 445)
   security_rule {
     name                       = "Allow-SMB"
     priority                   = 1004
@@ -107,7 +101,7 @@ resource "azurerm_network_security_group" "atlas_nsg" {
   }
 }
 
-# 7. Создаем Сетевой интерфейс (Сетевую карту) тачки
+# 5. Привязка сети
 resource "azurerm_network_interface" "atlas_nic" {
   name                = "ATLAS-DC01-nic"
   location            = azurerm_resource_group.atlas_rg.location
@@ -117,91 +111,96 @@ resource "azurerm_network_interface" "atlas_nic" {
     name                          = "internal"
     subnet_id                     = azurerm_subnet.atlas_subnet.id
     private_ip_address_allocation = "Static"
-    private_ip_address            = "10.0.0.4" # Фиксированный IP для Контроллера Домена
+    private_ip_address            = "10.0.0.4"
     public_ip_address_id          = azurerm_public_ip.atlas_ip.id
   }
 }
 
-# Связываем сетевую карту с правилами файрвола
 resource "azurerm_network_interface_security_group_association" "atlas_nic_nsg" {
   network_interface_id      = azurerm_network_interface.atlas_nic.id
   network_security_group_id = azurerm_network_security_group.atlas_nsg.id
 }
 
-# 8. СБОРКА СЕРВЕРА (ATLAS-DC01)
+# 6. Базовая Виртуальная Машина Windows Server 2022 Core
 resource "azurerm_windows_virtual_machine" "atlas_dc" {
   name                = "ATLAS-DC01"
   resource_group_name = azurerm_resource_group.atlas_rg.name
   location            = azurerm_resource_group.atlas_rg.location
-  size                = "Standard_B2as_v2" # Твой размер 2 vCPU / 8 GiB
+  size                = "Standard_B2as_v2"
   admin_username      = "atlas_admin"
-  admin_password      = "HoldUpTheSky2026!" # Пароль должен быть сложным
+  admin_password      = "HoldUpTheSky2026!"
 
   network_interface_ids = [
     azurerm_network_interface.atlas_nic.id,
   ]
 
-  # Настройки жесткого диска
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "Premium_LRS"
   }
 
-  # Выбираем образ
   source_image_reference {
     publisher = "MicrosoftWindowsServer"
     offer     = "WindowsServer"
-    sku       = "2025-datacenter-core-g2"
+    sku       = "2022-datacenter-azure-edition-core" # Используем стабильную версию 2022
     version   = "latest"
   }
-
-  # Код кодируется в Base64, облако Azure само расшифрует и запустит его при старте.
-  user_data = base64encode(<<-EOF
-    <powershell>
-    Set-MpPreference -DisableRealtimeMonitoring $true
-    $ScriptPath = "C:\atlas_core_bootstrap.ps1"
-
-    $BootstrapperCode = @"
-    # Проверяем домен
-    `$DomainCheck = Get-WmiObject Win32_ComputerSystem | Select-Object -ExpandProperty PartOfDomain
-    if (`$DomainCheck -ne "olympus.local") {
-        Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
-        `$Action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument "-ExecutionPolicy Bypass -File C:\atlas_core_bootstrap.ps1"
-        `$Trigger = New-ScheduledTaskTrigger -AtStartup
-        `$Principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-        `$Task = New-ScheduledTask -Action `$Action -Trigger `$Trigger -Principal `$Principal
-        Register-ScheduledTask -TaskName "ATLAS_PostReboot_Config" -InputObject `$Task -Force
-
-        `$ADPassword = ConvertTo-SecureString "HoldUpTheSky2026!" -AsPlainText -Force
-        Install-ADDSForest -DomainName "olympus.local" -SafeModeAdministratorPassword `$ADPassword -Force:`$true
-    } else {
-        Start-Sleep -Seconds 45
-        Import-Module ActiveDirectory
-
-        # Создаем Прометея (AS-REP Roasting)
-        `$PrometheusPass = ConvertTo-SecureString "StealTheFire2026!" -AsPlainText -Force
-        New-ADUser -Name "Prometheus Titan" -SamAccountName "prometheus" -UserPrincipalName "prometheus@olympus.local" -AccountPassword `$PrometheusPass -Enabled `$true
-        Set-ADUser -Identity "prometheus" -Replace @{useraccountcontrol=4194304}
-
-        # Создаем Гермеса (Kerberoasting)
-        `$HermesPass = ConvertTo-SecureString "MessengerOfGods123!" -AsPlainText -Force
-        New-ADUser -Name "Hermes Service" -SamAccountName "hermes.svc" -UserPrincipalName "hermes.svc@olympus.local" -AccountPassword `$HermesPass -Enabled `$true
-        setspn -A MSSQLSvc/kronos.olympus.local:1433 hermes.svc
-
-        Unregister-ScheduledTask -TaskName "ATLAS_PostReboot_Config" -Confirm:`$false
-        Remove-Item -Path "C:\atlas_core_bootstrap.ps1" -Force
-    }
-    "@
-
-    Set-Content -Path $ScriptPath -Value $BootstrapperCode
-    powershell -ExecutionPolicy Bypass -File $ScriptPath
-    </powershell>
-  EOF
-  )
 }
 
-# Выводим публичный IP-адрес на экран после сборки, чтобы сразу подключаться
+# 7. Надежное развертывание AD через внутреннюю Base64 сборку
+resource "azurerm_virtual_machine_extension" "ad_bootstrap" {
+  name                 = "ad-bootstrap-extension"
+  virtual_machine_id   = azurerm_windows_virtual_machine.atlas_dc.id
+  publisher            = "Microsoft.Compute"
+  type                 = "CustomScriptExtension"
+  type_handler_version = "1.10"
+
+  # Мы берем чистый PS-скрипт, Терраформ кодирует его в Base64, а Azure просто создает файл C:\setup.ps1 внутри VM
+  protected_settings = <<SETTINGS
+    {
+        "commandToExecute": "powershell.exe -ExecutionPolicy Bypass -Command \"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${base64encode(<<-EOF
+          Set-MpPreference -DisableRealtimeMonitoring $true
+          Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+
+          $ScriptPath = 'C:\\atlas_setup.ps1'
+          $Code = @'
+          $ADInstalled = (Get-WindowsFeature -Name AD-Domain-Services).Installed
+          if ($ADInstalled -ne $true) {
+              Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+              $pass = ConvertTo-SecureString "HoldUpTheSky2026!" -AsPlainText -Force
+              Install-ADDSForest -DomainName "olympus.local" -SafeModeAdministratorPassword $pass -Force:$true
+          } else {
+              Start-Sleep -Seconds 45
+              Import-Module ActiveDirectory
+              $p_pass = ConvertTo-SecureString "StealTheFire2026!" -AsPlainText -Force
+              New-ADUser -Name "Prometheus Titan" -SamAccountName "prometheus" -UserPrincipalName "prometheus@olympus.local" -AccountPassword $p_pass -Enabled:$true
+              Set-ADUser -Identity "prometheus" -Replace @{useraccountcontrol=4194304}
+              
+              $h_pass = ConvertTo-SecureString "MessengerOfGods123!" -AsPlainText -Force
+              New-ADUser -Name "Hermes Service" -SamAccountName "hermes.svc" -UserPrincipalName "hermes.svc@olympus.local" -AccountPassword $h_pass -Enabled:$true
+              setspn -A MSSQLSvc/kronos.olympus.local:1433 hermes.svc
+              
+              Unregister-ScheduledTask -TaskName "ATLAS_AD_Setup" -Confirm:$false -ErrorAction SilentlyContinue
+              Remove-Item -Path "C:\\atlas_setup.ps1" -Force
+          }
+'@
+          Set-Content -Path $ScriptPath -Value $Code
+
+          $Action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument '-ExecutionPolicy Bypass -File C:\\atlas_setup.ps1'
+          $Trigger = New-ScheduledTaskTrigger -AtStartup
+          $Principal = New-ScheduledTaskPrincipal -UserId 'NT AUTHORITY\\SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+          $Task = New-ScheduledTask -Action $Action -Trigger $Trigger -Principal $Principal
+          Register-ScheduledTask -TaskName 'ATLAS_AD_Setup' -InputObject $Task -Force
+          Start-ScheduledTask -TaskName 'ATLAS_AD_Setup'
+        EOF
+        )}')) | Set-Content -Path C:\\setup.ps1; powershell.exe -ExecutionPolicy Bypass -File C:\\setup.ps1\""
+    }
+SETTINGS
+
+  depends_on = [azurerm_windows_virtual_machine.atlas_dc]
+}
+
+# 8. Вывод IP для проведения атак
 output "public_ip_address" {
   value       = azurerm_public_ip.atlas_ip.ip_address
-  description = "Public IP address of the ATLAS Domain Controller"
 }
