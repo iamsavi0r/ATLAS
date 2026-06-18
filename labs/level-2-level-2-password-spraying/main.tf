@@ -177,7 +177,7 @@ resource "azurerm_windows_virtual_machine" "atlas_dc" {
   source_image_reference {
     publisher = "MicrosoftWindowsServer"
     offer     = "WindowsServer"
-    sku       = "2022-datacenter-azure-edition-core"
+    sku       = "2025-datacenter-core-g2"
     version   = "latest"
   }
 }
@@ -187,7 +187,7 @@ resource "azurerm_windows_virtual_machine" "atlas_client" {
   name                = "ATLAS-PC01"
   resource_group_name = azurerm_resource_group.atlas_rg.name
   location            = azurerm_resource_group.atlas_rg.location
-  size                = "Standard_B1ms" # Экономим бюджет, 2GB RAM
+  size                = "Standard_B2as_v2" 
   admin_username      = "local_user"
   admin_password      = "HoldUpTheSky2026!"
 
