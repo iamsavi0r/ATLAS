@@ -208,7 +208,7 @@ resource "azurerm_windows_virtual_machine" "atlas_client" {
   }
 }
 
-# 8. Развертывание AD и генерация 100+ пользователей для брута
+# 8. Надежное развертывание AD и генерация 100+ юзеров (Без создания файлов на диске)
 resource "azurerm_virtual_machine_extension" "ad_bootstrap" {
   name                 = "ad-bootstrap-extension"
   virtual_machine_id   = azurerm_windows_virtual_machine.atlas_dc.id
@@ -222,25 +222,24 @@ resource "azurerm_virtual_machine_extension" "ad_bootstrap" {
           Set-MpPreference -DisableRealtimeMonitoring $true
           Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
 
-          $ScriptPath = 'C:\\atlas_setup.ps1'
-          $Code = @'
+          # Проверяем, установлен ли AD
           $ADInstalled = (Get-WindowsFeature -Name AD-Domain-Services).Installed
           if ($ADInstalled -ne $true) {
+              # Шаг 1: Ставим роль AD и перезагружаем лес
               Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
               $pass = ConvertTo-SecureString "HoldUpTheSky2026!" -AsPlainText -Force
               Install-ADDSForest -DomainName "olympus.local" -SafeModeAdministratorPassword $pass -Force:$true
           } else {
+              # Шаг 2: Ожидаем полной готовности служб после ребута
               Start-Sleep -Seconds 45
               Import-Module ActiveDirectory
               
-              # Цикл генерации 100 пользователей для Password Spraying
+              # Генерируем 100 пользователей прямо в базу NTDS
               for ($i = 1; $i -le 100; $i++) {
                   $username = "user$i"
-                  
-                  # По умолчанию ставим жесткий случайный пароль, который нельзя угадать
                   $randomPassStr = [Guid]::NewGuid().ToString().Substring(0,12) + "A1!"
                   
-                  # Закладки: Юзерам 25 и 77 ставим слабый пароль для атаки
+                  # Закладки для Password Spraying (юзеры 25 и 77)
                   if ($i -eq 25 -or $i -eq 77) {
                       $randomPassStr = "Autumn2026!"
                   }
@@ -249,20 +248,11 @@ resource "azurerm_virtual_machine_extension" "ad_bootstrap" {
                   New-ADUser -Name "Lab User $i" -SamAccountName $username -UserPrincipalName "$username@olympus.local" -AccountPassword $securePass -Enabled:$true
               }
               
+              # Самоочистка таски из памяти планировщика
               Unregister-ScheduledTask -TaskName "ATLAS_AD_Setup" -Confirm:$false -ErrorAction SilentlyContinue
-              Remove-Item -Path "C:\\atlas_setup.ps1" -Force
           }
 '@
-          Set-Content -Path $ScriptPath -Value $Code
-
-          $Action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument '-ExecutionPolicy Bypass -File C:\\atlas_setup.ps1'
-          $Trigger = New-ScheduledTaskTrigger -AtStartup
-          $Principal = New-ScheduledTaskPrincipal -UserId 'NT AUTHORITY\\SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-          $Task = New-ScheduledTask -Action $Action -Trigger $Trigger -Principal $Principal
-          $Register = Register-ScheduledTask -TaskName 'ATLAS_AD_Setup' -InputObject $Task -Force
-          Start-ScheduledTask -TaskName 'ATLAS_AD_Setup'
-        EOF
-        )}')) | Set-Content -Path C:\\setup.ps1; powershell.exe -ExecutionPolicy Bypass -File C:\\setup.ps1\""
+          )}')) | Set-Content -Path C:\\setup.ps1; powershell.exe -ExecutionPolicy Bypass -File C:\\setup.ps1\""
     }
 SETTINGS
 
