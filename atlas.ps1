@@ -1,23 +1,19 @@
 Clear-Host
-
 Write-Host "====================================================" -ForegroundColor Cyan
 Write-Host "   🌍 Welcome to ATLAS (Low-Resource AD Labs) 🌍   " -ForegroundColor Cyan
 Write-Host "====================================================" -ForegroundColor Cyan
 Write-Host "Accessible Training Labs for Active-directory Security." -ForegroundColor Gray
 Write-Host ""
-
 Write-Host "Choose an action:" -ForegroundColor Yellow
 Write-Host "[1] Deploy Level 1: Beginner AD (Kerberoasting & AS-REP Lab)"
 Write-Host "[2] Deploy Level 2: Smart Recon & Password Spraying (100+ Users)"
-Write-Host "[3] Destroy Infrastructure (Stop & Delete everything to save money)"
-Write-Host "[4] Exit"
+Write-Host "[3] Deploy Level 3: GPO & Share Misconfigurations"
+Write-Host "[4] Destroy Infrastructure (Stop & Delete everything to save money)"
+Write-Host "[5] Exit"
 Write-Host ""
-
-$choice = Read-Host "Enter your choice (1-4)"
-
+$choice = Read-Host "Enter your choice (1-5)"
 # Запоминаем корневую папку проекта, чтобы PowerShell всегда мог вернуться назад
 $RootDir = Get-Location
-
 switch ($choice) {
     "1" {
         Write-Host "`n[+] Starting deployment of Level 1..." -ForegroundColor Green
@@ -36,14 +32,24 @@ switch ($choice) {
         Set-Location $RootDir
         Write-Host "`n[+] Level 2 deployed successfully! 2 VMs are live in Azure." -ForegroundColor Green
     }
-    
+
     "3" {
+        Write-Host "`n[+] Starting deployment of Level 3 (GPO & Share Misconfigurations)..." -ForegroundColor Green
+        Set-Location "$RootDir\labs\level-3-gpo-misconfigurations"
+        terraform init
+        terraform apply -auto-approve
+        Set-Location $RootDir
+        Write-Host "`n[+] Level 3 deployed successfully! Vulnerable GPOs and shares are live in Azure." -ForegroundColor Green
+    }
+
+    "4" {
         Write-Host "`n[!] WARNING: This will completely delete the deployed infrastructure!" -ForegroundColor Red
         Write-Host "Which level do you want to destroy?" -ForegroundColor Yellow
         Write-Host "[1] Destroy Level 1"
         Write-Host "[2] Destroy Level 2"
+        Write-Host "[3] Destroy Level 3"
         
-        $destroyChoice = Read-Host "Enter choice (1-2)"
+        $destroyChoice = Read-Host "Enter choice (1-3)"
         $confirm = Read-Host "Are you absolutely sure? (y/n)"
         
         if ($confirm -eq "y") {
@@ -55,6 +61,10 @@ switch ($choice) {
                 Write-Host "`n[-] Destroying Level 2..." -ForegroundColor Red
                 Set-Location "$RootDir\labs\level-2-password-spraying"
                 terraform destroy -auto-approve
+            } elseif ($destroyChoice -eq "3") {
+                Write-Host "`n[-] Destroying Level 3..." -ForegroundColor Red
+                Set-Location "$RootDir\labs\level-3-gpo-misconfigurations"
+                terraform destroy -auto-approve
             } else {
                 Write-Host "`n[!] Invalid choice. Destruction aborted." -ForegroundColor Red
                 Set-Location $RootDir
@@ -65,7 +75,7 @@ switch ($choice) {
         }
     }
     
-    "4" {
+    "5" {
         Write-Host "`nGoodbye! Happy hacking!" -ForegroundColor Cyan
         Exit
     }
