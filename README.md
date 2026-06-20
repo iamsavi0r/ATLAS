@@ -23,7 +23,7 @@ Existing automated lab builders (like GOAD) are incredible tools, but they are b
 * **Modular Construction:** You don't need to spin up 5 heavy domain controllers just to practice one attack. Choose your specific scenario from an interactive menu:
   * `[1] Beginner AD (Kerberoasting Lab)`
   * `[2] AS-REP Roasting Lab`
-  * `[3] Under Development...`
+  * `[3] GPO & Share Misconfigurations`
 
 ---
 
@@ -62,11 +62,8 @@ Log into your Azure account via the official CLI:
 Execute the main automation orchestrator script:
 `.\atlas.ps1`
 
-#### Step 4: Choose Your Option
-Once the interactive console menu pops up, select your action:
-* Type **1** and hit Enter to automatically initialize Terraform and deploy **Level 1 (Olympus Domain Controller)**.
-* Wait about 5-7 minutes for Azure to fully provision the virtual machine and apply the post-reboot AD configuration magic.
-
+⚠️ **ATTENTION — automation isn't bulletproof yet.** Sometimes the post-reboot AD configuration hangs or partially fails depending on Azure latency. If `atlas.ps1` finishes but the domain doesn't look fully set up (DC not responding, no users created, etc.), don't panic - just walk through the manual setup steps in **[`labs/level-1-basic/README.md`](labs/level-1-basic/README.md)** to finish the last mile by hand. It's a good exercise anyway - you'll actually see how the DC gets built instead of trusting a script blindly...
+ 
 #### Step 5: Start Pentesting!
 Once the deployment finishes, the script will output the **Public IP Address** of your Domain Controller. You can now use tools like Impacket from your attacker machine:
 * For AS-REP Roasting: `GetNPUsers.py olympus.local/ -usersfile users.txt -dc-ip <TARGET_IP>`
@@ -98,4 +95,4 @@ To ensure your cloud usage stays 100% within the Free Tier or low-budget limits,
 * **Author:** savi0r (`@btwsavi0r`)
 * **Dev Blog (Backstage & Progress):** [https://www.instagram.com/atlasprojectsec/ / https://medium.com/@savi0r]
 
-*If you believe cybersecurity education should be accessible to everyone, regardless of their hardware—please drop a ⭐ to support the project!*
+*If you believe cybersecurity education should be accessible to everyone, regardless of their hardware-please drop a ⭐ to support the project!*
